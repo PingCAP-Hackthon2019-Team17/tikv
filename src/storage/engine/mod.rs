@@ -306,8 +306,8 @@ pub struct Cursor<I: Iterator> {
     iter: I,
     scan_mode: ScanMode,
     // the data cursor can be seen will be
-    min_key: Option<SmallVec<[u8; 256]>>,
-    max_key: Option<SmallVec<[u8; 256]>>,
+    min_key: Option<SmallVec<[u8; 32]>>,
+    max_key: Option<SmallVec<[u8; 32]>>,
 }
 
 impl<I: Iterator> Cursor<I> {

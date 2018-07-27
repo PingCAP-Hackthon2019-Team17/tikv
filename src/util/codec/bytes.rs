@@ -81,15 +81,15 @@ fn adjust_bytes_order<'a>(bs: &'a [u8], desc: bool, buf: &'a mut [u8]) -> &'a [u
 
 impl<T: Write> BytesEncoder for T {}
 
-pub fn encode_bytes(bs: &[u8]) -> SmallVec<[u8; 256]> {
+pub fn encode_bytes(bs: &[u8]) -> SmallVec<[u8; 32]> {
     encode_order_bytes(bs, false)
 }
 
-pub fn encode_bytes_desc(bs: &[u8]) -> SmallVec<[u8; 256]> {
+pub fn encode_bytes_desc(bs: &[u8]) -> SmallVec<[u8; 32]> {
     encode_order_bytes(bs, true)
 }
 
-fn encode_order_bytes(bs: &[u8], desc: bool) -> SmallVec<[u8; 256]> {
+fn encode_order_bytes(bs: &[u8], desc: bool) -> SmallVec<[u8; 32]> {
     let cap = max_encoded_bytes_size(bs.len());
     let mut encoded = SmallVec::with_capacity(cap);
     encoded.encode_bytes(bs, desc).unwrap();
@@ -153,7 +153,7 @@ pub fn encoded_bytes_len(encoded: &[u8], desc: bool) -> usize {
 }
 
 /// `decode_compact_bytes` decodes bytes which is encoded by `encode_compact_bytes` before.
-pub fn decode_compact_bytes(data: &mut BytesSlice) -> Result<SmallVec<[u8; 256]>> {
+pub fn decode_compact_bytes(data: &mut BytesSlice) -> Result<SmallVec<[u8; 32]>> {
     let vn = number::decode_var_i64(data)? as usize;
     if data.len() >= vn {
         let bs = SmallVec::from_vec(data[0..vn].to_vec());
@@ -163,8 +163,8 @@ pub fn decode_compact_bytes(data: &mut BytesSlice) -> Result<SmallVec<[u8; 256]>
     Err(Error::unexpected_eof())
 }
 
-pub fn decode_bytes(data: &mut BytesSlice, desc: bool) -> Result<SmallVec<[u8; 256]>> {
-    let mut key : SmallVec<[u8; 256]> = SmallVec::with_capacity(data.len() / (ENC_GROUP_SIZE + 1) * ENC_GROUP_SIZE);
+pub fn decode_bytes(data: &mut BytesSlice, desc: bool) -> Result<SmallVec<[u8; 32]>> {
+    let mut key : SmallVec<[u8; 32]> = SmallVec::with_capacity(data.len() / (ENC_GROUP_SIZE + 1) * ENC_GROUP_SIZE);
     let mut offset = 0;
     let chunk_len = ENC_GROUP_SIZE + 1;
     loop {

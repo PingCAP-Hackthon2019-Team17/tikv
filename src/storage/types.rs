@@ -61,7 +61,7 @@ pub fn truncate_ts(key: &[u8]) -> &[u8] {
 /// but this information is transparent to this type, the caller must use it
 /// consistently.
 #[derive(Debug, Clone)]
-pub struct Key(SmallVec<[u8; 256]>);
+pub struct Key(SmallVec<[u8; 32]>);
 
 /// Core functions for `Key`.
 impl Key {
@@ -81,7 +81,7 @@ impl Key {
     }
 
     /// Gets the encoded representation of this key.
-    pub fn encoded(&self) -> &SmallVec<[u8; 256]> {
+    pub fn encoded(&self) -> &SmallVec<[u8; 32]> {
         &self.0
     }
 
