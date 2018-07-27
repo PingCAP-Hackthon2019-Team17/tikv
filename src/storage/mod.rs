@@ -939,7 +939,7 @@ impl<E: Engine> Storage<E> {
                             Ok(Some(v)) => {
                                 stats.data.flow_stats.read_keys += 1;
                                 stats.data.flow_stats.read_bytes += k.encoded().len() + v.len();
-                                Ok((k.encoded().clone(), v))
+                                Ok((k.encoded().to_owned().into_vec(), v))
                             }
                             Err(e) => Err(Error::from(e)),
                             _ => unreachable!(),
@@ -1105,7 +1105,7 @@ impl<E: Engine> Storage<E> {
     ) -> Result<Vec<Result<KvPair>>> {
         let mut option = IterOption::default();
         if let Some(end) = end_key {
-            option.set_upper_bound(end.encoded().clone());
+            option.set_upper_bound(end.encoded().to_owned().into_vec());
         }
         let mut cursor = snapshot.iter_cf(Self::rawkv_cf(cf)?, option, ScanMode::Forward)?;
         if !cursor.seek(start_key, &mut stats.data)? {

@@ -17,6 +17,7 @@ use byteorder::ReadBytesExt;
 use storage::{Mutation, SHORT_VALUE_MAX_LEN, SHORT_VALUE_PREFIX};
 use util::codec::bytes::{self, BytesEncoder};
 use util::codec::number::{self, MAX_VAR_U64_LEN, NumberEncoder};
+use smallvec::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LockType {
@@ -103,7 +104,7 @@ impl Lock {
             return Err(Error::BadFormatLock);
         }
         let lock_type = LockType::from_u8(b.read_u8()?).ok_or(Error::BadFormatLock)?;
-        let primary = bytes::decode_compact_bytes(&mut b)?;
+        let primary = bytes::decode_compact_bytes(&mut b).map(SmallVec::into_vec)?;
         let ts = number::decode_var_u64(&mut b)?;
         let ttl = if b.is_empty() {
             0

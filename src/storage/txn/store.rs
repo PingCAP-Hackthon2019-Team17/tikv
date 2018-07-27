@@ -130,7 +130,7 @@ impl<S: Snapshot> StoreScanner<S> {
     }
 
     pub fn scan(&mut self, mut key: Key, limit: usize) -> Result<Vec<Result<KvPair>>> {
-        let mut results = vec![];
+        let mut results = Vec::with_capacity(limit);
         while results.len() < limit {
             match self.seek(key) {
                 Ok(Some((k, v))) => {
@@ -147,7 +147,7 @@ impl<S: Snapshot> StoreScanner<S> {
     }
 
     pub fn reverse_scan(&mut self, mut key: Key, limit: usize) -> Result<Vec<Result<KvPair>>> {
-        let mut results = vec![];
+        let mut results = Vec::with_capacity(limit);
         while results.len() < limit {
             match self.reverse_seek(key) {
                 Ok(Some((k, v))) => {

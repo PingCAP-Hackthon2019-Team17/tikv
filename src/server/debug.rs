@@ -50,6 +50,8 @@ use util::properties::MvccProperties;
 use util::rocksdb::get_cf_handle;
 use util::worker::Worker;
 
+use smallvec::*;
+
 pub type Result<T> = result::Result<T, Error>;
 type DBIterator = ::rocksdb::DBIterator<Arc<DB>>;
 
@@ -673,7 +675,7 @@ impl Debugger {
         {
             Some(data_key) => {
                 let mut key = keys::origin_key(&data_key);
-                box_try!(bytes::decode_bytes(&mut key, false))
+                box_try!(bytes::decode_bytes(&mut key, false).map(SmallVec::into_vec))
             }
             None => Vec::new(),
         };

@@ -29,6 +29,7 @@ use coprocessor::dag::expr::EvalContext;
 use util::codec::bytes::{self, BytesEncoder};
 use util::codec::{number, BytesSlice};
 use util::escape;
+use smallvec::*;
 
 pub const NIL_FLAG: u8 = 0;
 const BYTES_FLAG: u8 = 1;
@@ -803,8 +804,8 @@ pub fn decode_datum(data: &mut BytesSlice) -> Result<Datum> {
         let datum = match flag {
             INT_FLAG => number::decode_i64(data).map(Datum::I64)?,
             UINT_FLAG => number::decode_u64(data).map(Datum::U64)?,
-            BYTES_FLAG => bytes::decode_bytes(data, false).map(Datum::Bytes)?,
-            COMPACT_BYTES_FLAG => bytes::decode_compact_bytes(data).map(Datum::Bytes)?,
+            BYTES_FLAG => bytes::decode_bytes(data, false).map(SmallVec::into_vec).map(Datum::Bytes)?,
+            COMPACT_BYTES_FLAG => bytes::decode_compact_bytes(data).map(SmallVec::into_vec).map(Datum::Bytes)?,
             NIL_FLAG => Datum::Null,
             FLOAT_FLAG => number::decode_f64(data).map(Datum::F64)?,
             DURATION_FLAG => {

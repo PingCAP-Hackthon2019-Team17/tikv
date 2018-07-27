@@ -23,6 +23,7 @@ use kvproto::kvrpcpb::{Context, ScanDetail, ScanInfo};
 use rocksdb::{ColumnFamilyOptions, TablePropertiesCollection};
 use storage::{CfName, Key, Value, CF_DEFAULT, CF_LOCK, CF_RAFT, CF_WRITE};
 
+use smallvec::*;
 use config;
 
 use util::rocksdb::CFOptions;
@@ -305,8 +306,8 @@ pub struct Cursor<I: Iterator> {
     iter: I,
     scan_mode: ScanMode,
     // the data cursor can be seen will be
-    min_key: Option<Vec<u8>>,
-    max_key: Option<Vec<u8>>,
+    min_key: Option<SmallVec<[u8; 256]>>,
+    max_key: Option<SmallVec<[u8; 256]>>,
 }
 
 impl<I: Iterator> Cursor<I> {

@@ -22,6 +22,7 @@ use util::codec::bytes;
 use util::codec::number::{self, NumberEncoder};
 use util::{codec, escape};
 
+use smallvec::*;
 use storage::mvcc::{Lock, Write};
 
 /// Value type which is essentially raw bytes.
@@ -60,7 +61,7 @@ pub fn truncate_ts(key: &[u8]) -> &[u8] {
 /// but this information is transparent to this type, the caller must use it
 /// consistently.
 #[derive(Debug, Clone)]
-pub struct Key(Vec<u8>);
+pub struct Key(SmallVec<[u8; 256]>);
 
 /// Core functions for `Key`.
 impl Key {
@@ -71,16 +72,16 @@ impl Key {
 
     /// Gets the raw representation of this key.
     pub fn raw(&self) -> Result<Vec<u8>, codec::Error> {
-        bytes::decode_bytes(&mut self.0.as_slice(), false)
+        bytes::decode_bytes(&mut self.0.as_slice(), false).map(SmallVec::into_vec)
     }
 
     /// Creates a key from encoded bytes.
     pub fn from_encoded(encoded_key: Vec<u8>) -> Key {
-        Key(encoded_key)
+        Key(SmallVec::from_vec(encoded_key))
     }
 
     /// Gets the encoded representation of this key.
-    pub fn encoded(&self) -> &Vec<u8> {
+    pub fn encoded(&self) -> &SmallVec<[u8; 256]> {
         &self.0
     }
 

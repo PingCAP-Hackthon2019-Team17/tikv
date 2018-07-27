@@ -211,7 +211,7 @@ impl<S: Snapshot> MvccTxn<S> {
                         Err(Error::TxnLockNotFound {
                             start_ts: self.start_ts,
                             commit_ts,
-                            key: key.encoded().to_owned(),
+                            key: key.encoded().to_owned().into_vec(),
                         })
                     }
                     // Committed by concurrent transaction.
