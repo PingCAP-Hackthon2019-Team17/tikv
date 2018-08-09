@@ -191,7 +191,7 @@ impl<S: Snapshot> MvccReader<S> {
         if !ok {
             return Ok(None);
         }
-        let write_key = Key::from_encoded(cursor.key().to_vec());
+        let write_key = Key::from_encoded_slice(cursor.key());
         let commit_ts = write_key.decode_ts()?;
         let k = write_key.truncate_ts()?;
         if &k != key {
@@ -334,7 +334,7 @@ impl<S: Snapshot> MvccReader<S> {
         while ok {
             if Write::parse(cursor.value())?.start_ts == ts {
                 return Ok(Some(
-                    Key::from_encoded(cursor.key().to_vec()).truncate_ts()?,
+                    Key::from_encoded_slice(cursor.key()).truncate_ts()?,
                 ));
             }
             ok = cursor.next(&mut self.statistics.write);
@@ -372,12 +372,12 @@ impl<S: Snapshot> MvccReader<S> {
                 }
                 match (w_key, l_key) {
                     (None, None) => return Ok(None),
-                    (None, Some(k)) => Key::from_encoded(k.to_vec()),
-                    (Some(k), None) => Key::from_encoded(k.to_vec()).truncate_ts()?,
+                    (None, Some(k)) => Key::from_encoded_slice(k),
+                    (Some(k), None) => Key::from_encoded_slice(k).truncate_ts()?,
                     (Some(wk), Some(lk)) => if wk < lk {
-                        Key::from_encoded(wk.to_vec()).truncate_ts()?
+                        Key::from_encoded_slice(wk).truncate_ts()?
                     } else {
-                        Key::from_encoded(lk.to_vec())
+                        Key::from_encoded_slice(lk)
                     },
                 }
             };
@@ -417,12 +417,12 @@ impl<S: Snapshot> MvccReader<S> {
                 }
                 match (w_key, l_key) {
                     (None, None) => return Ok(None),
-                    (None, Some(k)) => Key::from_encoded(k.to_vec()),
-                    (Some(k), None) => Key::from_encoded(k.to_vec()).truncate_ts()?,
+                    (None, Some(k)) => Key::from_encoded_slice(k),
+                    (Some(k), None) => Key::from_encoded_slice(k).truncate_ts()?,
                     (Some(wk), Some(lk)) => if wk < lk {
-                        Key::from_encoded(lk.to_vec())
+                        Key::from_encoded_slice(lk)
                     } else {
-                        Key::from_encoded(wk.to_vec()).truncate_ts()?
+                        Key::from_encoded_slice(wk).truncate_ts()?
                     },
                 }
             };
@@ -467,7 +467,7 @@ impl<S: Snapshot> MvccReader<S> {
                 let (commit_ts, key) = {
                     let w_cur = self.write_cursor.as_ref().unwrap();
                     last_handled_key = Some(w_cur.key().to_vec());
-                    let w_key = Key::from_encoded(w_cur.key().to_vec());
+                    let w_key = Key::from_encoded_slice(w_cur.key());
                     (w_key.decode_ts()?, w_key.truncate_ts()?)
                 };
 
@@ -521,7 +521,7 @@ impl<S: Snapshot> MvccReader<S> {
                 }
 
                 let w_cur = self.write_cursor.as_ref().unwrap();
-                let w_key = Key::from_encoded(w_cur.key().to_vec());
+                let w_key = Key::from_encoded_slice(w_cur.key());
                 let commit_ts = w_key.decode_ts()?;
                 assert!(commit_ts <= ts);
                 let key = w_key.truncate_ts()?;
@@ -586,7 +586,7 @@ impl<S: Snapshot> MvccReader<S> {
         }
         let mut locks = Vec::with_capacity(limit);
         while cursor.valid() {
-            let key = Key::from_encoded(cursor.key().to_vec());
+            let key = Key::from_encoded_slice(cursor.key());
             let lock = Lock::parse(cursor.value())?;
             if filter(&lock) {
                 locks.push((key, lock));
@@ -622,7 +622,7 @@ impl<S: Snapshot> MvccReader<S> {
                 self.statistics.write.processed += keys.len();
                 return Ok((keys, start));
             }
-            let key = Key::from_encoded(cursor.key().to_vec()).truncate_ts()?;
+            let key = Key::from_encoded_slice(cursor.key()).truncate_ts()?;
             start = Some(key.clone().append_ts(0));
             keys.push(key);
         }
@@ -638,7 +638,7 @@ impl<S: Snapshot> MvccReader<S> {
         }
         let mut v = vec![];
         while ok {
-            let cur_key = Key::from_encoded(cursor.key().to_vec());
+            let cur_key = Key::from_encoded_slice(cursor.key());
             let ts = cur_key.decode_ts()?;
             let cur_key_without_ts = cur_key.truncate_ts()?;
             if cur_key_without_ts.encoded().as_slice() == key.encoded().as_slice() {
