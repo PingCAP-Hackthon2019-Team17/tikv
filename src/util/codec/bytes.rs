@@ -16,6 +16,7 @@ use std::io::{BufRead, Write};
 
 use super::{BytesSlice, Error, Result};
 use util::codec::number::{self, NumberEncoder};
+use std::ptr;
 
 const ENC_GROUP_SIZE: usize = 8;
 const ENC_MARKER: u8 = b'\xff';
@@ -162,6 +163,120 @@ pub fn decode_compact_bytes(data: &mut BytesSlice) -> Result<Vec<u8>> {
     Err(Error::unexpected_eof())
 }
 
+/// decode_bytes_in_place decodes bytes which is encoded by `encoded_bytes` before just in place without malloc.
+pub fn decode_bytes_in_place(mut data: Vec<u8>, desc: bool) -> Result<Vec<u8>> {
+    let mut write_offset = 0;
+    let mut read_offset = 0;
+
+    let chunk_len = ENC_GROUP_SIZE + 1;
+    loop {
+        let next_offset = read_offset + chunk_len;
+        if next_offset > data.len() {
+            return Err(Error::unexpected_eof());
+        };
+       
+        let marker = data[next_offset - 1];
+        let pad_size = if desc {
+            marker as usize
+        } else {
+            (ENC_MARKER - marker) as usize
+        };
+            println!("pad_size:{} write_offset:{} read_offset:{}", pad_size, write_offset, read_offset);
+        if pad_size == 0 {
+            // copy the item inplace 
+            for i in write_offset..(write_offset + ENC_GROUP_SIZE){
+                data[i] = data[read_offset];
+                read_offset += 1;
+            }
+            write_offset += ENC_GROUP_SIZE;
+            // for marker 
+            read_offset += 1;
+            continue;
+        }
+
+        if pad_size > ENC_GROUP_SIZE {
+            return Err(Error::KeyPadding);
+        }
+        for i in write_offset..(write_offset + ENC_GROUP_SIZE - pad_size){
+            data[i] = data[read_offset];
+            read_offset += 1;
+        }
+        write_offset += ENC_GROUP_SIZE - pad_size;
+        let pad_byte = if desc { !0 } else { 0 };
+        if data[read_offset..next_offset].iter().any(|x| *x != pad_byte) {
+            return Err(Error::KeyPadding);
+        }
+        data.truncate(write_offset);
+
+        if desc {
+            for k in &mut data {
+                *k = !*k;
+            }
+        }
+        return Ok(data)
+    }
+}
+
+/// decode_bytes_in_place decodes bytes which is encoded by `encoded_bytes` before just in place without malloc.
+pub fn decode_bytes_in_place_memmove(mut data: Vec<u8>, desc: bool) -> Result<Vec<u8>> {
+    let mut write_offset = 0;
+    let mut read_offset = 0;
+
+    let chunk_len = ENC_GROUP_SIZE + 1;
+    println!("data len:{}",data.len());
+    loop {
+        let next_offset = read_offset + chunk_len;
+        if next_offset > data.len() {
+            return Err(Error::unexpected_eof());
+        };
+       
+        let marker = data[next_offset - 1];
+        let pad_size = if desc {
+            marker as usize
+        } else {
+            (ENC_MARKER - marker) as usize
+        };
+
+            println!("pad_size:{} next_offset:{} write_offset:{} read_offset:{}", pad_size, next_offset, write_offset, read_offset);
+        if pad_size == 0 {
+            unsafe {
+                ptr::copy(
+                    data.as_ptr().offset(read_offset as isize),
+                    data.as_mut_ptr().offset(write_offset as isize),
+                    ENC_GROUP_SIZE
+                    );
+                write_offset += ENC_GROUP_SIZE;
+                read_offset += ENC_GROUP_SIZE + 1;
+            }
+            continue;
+        }
+
+        if pad_size > ENC_GROUP_SIZE {
+            return Err(Error::KeyPadding);
+        }
+        unsafe {
+            ptr::copy(data.as_ptr().offset(read_offset as isize), data.as_mut_ptr().offset(write_offset as isize), ENC_GROUP_SIZE - pad_size);
+            write_offset += ENC_GROUP_SIZE - pad_size;
+            read_offset += ENC_GROUP_SIZE - pad_size;
+        }
+
+        let pad_byte = if desc { !0 } else { 0 };
+        if data[read_offset..next_offset].iter().any(|x| *x != pad_byte) {
+            return Err(Error::KeyPadding);
+        }
+
+        data.truncate(write_offset);
+
+        if desc {
+            for k in &mut data {
+                *k = !*k;
+            }
+        }
+        return Ok(data)
+    }
+}
+
+/// decode_bytes decodes bytes which is encoded by `encoded_bytes` before.
 pub fn decode_bytes(data: &mut BytesSlice, desc: bool) -> Result<Vec<u8>> {
     let mut key = Vec::with_capacity(data.len() / (ENC_GROUP_SIZE + 1) * ENC_GROUP_SIZE);
     let mut offset = 0;
@@ -388,6 +503,18 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_inplace_correctness() {
+        let key = [b'x'; 2000000];
+        let encoded = encode_bytes(&key);
+        let d = decode_bytes(&mut encoded.as_slice(), false).unwrap();
+
+        let key = [b'x'; 2000000];
+        let encoded = encode_bytes(&key);
+        let i = decode_bytes_in_place(encoded, false).unwrap();
+        assert_eq!(d, i);
+    }
+
     use test::Bencher;
 
     #[bench]
@@ -401,5 +528,23 @@ mod tests {
         let key = [b'x'; 2000000];
         let encoded = encode_bytes(&key);
         b.iter(|| decode_bytes(&mut encoded.as_slice(), false));
+    }
+
+    #[bench]
+    fn bench_decode_inplace_copy(b: &mut Bencher) {
+        b.iter(|| {
+            let key = [b'x'; 2000000];
+            let encoded = encode_bytes(&key);
+            decode_bytes_in_place(encoded, false);
+        });
+    }
+
+    #[bench]
+    fn bench_decode_inplace_memmove(b: &mut Bencher) {
+        b.iter(|| {
+            let key = [b'x'; 2000000];
+            let encoded = encode_bytes(&key);
+            decode_bytes_in_place_memmove(encoded, false);
+        });
     }
 }
