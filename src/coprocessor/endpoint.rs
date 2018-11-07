@@ -27,6 +27,7 @@ use server::readpool::{self, ReadPool};
 use server::Config;
 use storage::{self, Engine};
 use util::Either;
+use util::time::Instant;
 
 use coprocessor::dag::executor::ExecutorMetrics;
 use coprocessor::metrics::*;
@@ -274,13 +275,14 @@ impl<E: Engine> Endpoint<E> {
     /// handling, they will be embedded in the `Response`.
     fn handle_unary_request(
         &self,
+        ins: Instant,
         req_ctx: ReqContext,
         handler_builder: RequestHandlerBuilder<E::Snap>,
     ) -> impl Future<Item = coppb::Response, Error = ()> {
         let engine = self.engine.clone();
         let priority = readpool::Priority::from(req_ctx.context.get_priority());
         let mut tracker = box Tracker::new(req_ctx);
-
+        tracker.new_time = ins.elapsed();
         let result = self.read_pool.future_execute(priority, move |ctxd| {
             tracker.attach_ctxd(ctxd);
 
@@ -297,11 +299,12 @@ impl<E: Engine> Endpoint<E> {
     #[inline]
     pub fn parse_and_handle_unary_request(
         &self,
+        ins: Instant,
         req: coppb::Request,
         peer: Option<String>,
     ) -> impl Future<Item = coppb::Response, Error = ()> {
         let (handler_builder, req_ctx) = self.parse_request(req, peer, false);
-        self.handle_unary_request(req_ctx, handler_builder)
+        self.handle_unary_request(ins, req_ctx, handler_builder)
     }
 
     /// The real implementation of handling a stream request.
@@ -465,7 +468,6 @@ fn make_tag(is_table_scan: bool) -> &'static str {
 }
 
 fn make_error_response(e: Error) -> coppb::Response {
-    error!("{:?}", e);
     let mut resp = coppb::Response::new();
     let tag;
     match e {

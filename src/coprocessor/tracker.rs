@@ -56,6 +56,7 @@ pub struct Tracker {
 
     // Intermediate results
     current_stage: TrackerState,
+    pub new_time: Duration,
     wait_time: Duration,
     req_time: Duration,
     item_process_time: Duration,
@@ -81,6 +82,7 @@ impl Tracker {
             perf_statistics_start: None,
 
             current_stage: TrackerState::NotInitialized,
+            new_time: Duration::default(),
             wait_time: Duration::default(),
             req_time: Duration::default(),
             item_process_time: Duration::default(),
@@ -196,6 +198,11 @@ impl Tracker {
         let total_exec_metrics =
             ::std::mem::replace(&mut self.total_exec_metrics, ExecutorMetrics::default());
         let mut thread_ctx = self.ctxd.as_ref().unwrap().current_thread_context_mut();
+        thread_ctx
+            .basic_local_metrics
+            .new_time
+            .with_label_values(&[self.req_ctx.tag])
+            .observe(time::duration_to_sec(self.new_time)); 
         thread_ctx
             .basic_local_metrics
             .req_time

@@ -38,6 +38,7 @@ use storage::{self, Engine, Key, Mutation, Options, Storage, Value};
 use util::collections::HashMap;
 use util::future::{paired_future_callback, AndThenWith};
 use util::worker::Scheduler;
+use util::time::Instant;
 
 const SCHEDULER_IS_BUSY: &str = "scheduler is busy";
 const GC_WORKER_IS_BUSY: &str = "gc worker is busy";
@@ -865,7 +866,7 @@ impl<T: RaftStoreRouter + 'static, E: Engine> tikvpb_grpc::Tikv for Service<T, E
 
         let future = self
             .cop
-            .parse_and_handle_unary_request(req, Some(ctx.peer()))
+            .parse_and_handle_unary_request(Instant::now(), req, Some(ctx.peer()))
             .map_err(|_| unreachable!())
             .and_then(|res| sink.success(res).map_err(Error::from))
             .map(|_| timer.observe_duration())

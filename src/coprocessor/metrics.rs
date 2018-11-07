@@ -32,6 +32,12 @@ lazy_static! {
         &["req"],
         exponential_buckets(0.0005, 2.0, 20).unwrap()
     ).unwrap();
+    pub static ref COPR_REQ_NEW_TIME: HistogramVec = register_histogram_vec!(
+        "tikv_coprocessor_request_new_seconds",
+        "Bucketed histogram of coprocessor request new duration",
+        &["req"],
+        exponential_buckets(0.0005, 2.0, 20).unwrap()
+    ).unwrap();
     pub static ref COPR_REQ_WAIT_TIME: HistogramVec = register_histogram_vec!(
         "tikv_coprocessor_request_wait_seconds",
         "Bucketed histogram of coprocessor request wait duration",

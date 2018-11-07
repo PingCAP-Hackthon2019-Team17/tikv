@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use futures::{Future, Stream};
 use protobuf::Message;
+use tikv::util::time::Instant;
 
 use kvproto::coprocessor::{Request, Response};
 use tipb::schema::ColumnInfo;
@@ -33,7 +34,7 @@ pub fn handle_request<E>(cop: &Endpoint<E>, req: Request) -> Response
 where
     E: Engine,
 {
-    cop.parse_and_handle_unary_request(req, None)
+    cop.parse_and_handle_unary_request(Instant::now(), req, None)
         .wait()
         .unwrap()
 }
