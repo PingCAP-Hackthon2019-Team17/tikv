@@ -111,6 +111,14 @@ lazy_static! {
             exponential_buckets(0.0005, 2.0, 20).unwrap()
         ).unwrap();
 
+    pub static ref ROCKSDB_WRITE_PERF_HISTOGRAM: HistogramVec =
+        register_histogram_vec!(
+            "tikv_raftstore_rocksdb_write_perf",
+            "Bucketed histogram of raftstore rocksdb write perf",
+            &["db", "type"],
+            exponential_buckets(1.0, 2.0, 30).unwrap()
+        ).unwrap();
+
     pub static ref PEER_GC_RAFT_LOG_COUNTER: IntCounter =
         register_int_counter!(
             "tikv_raftstore_gc_raft_log_total",
@@ -222,5 +230,12 @@ lazy_static! {
         register_int_gauge!(
             "tikv_raftstore_read_index_pending",
             "pending read index count"
+        ).unwrap();
+
+    pub static ref PEER_COMMIT_LOG_HISTOGRAM: Histogram =
+        register_histogram!(
+            "tikv_raftstore_commit_log_duration_seconds",
+            "Bucketed histogram of peer commits logs duration",
+            exponential_buckets(0.0005, 2.0, 20).unwrap()
         ).unwrap();
 }
