@@ -108,6 +108,31 @@ impl Peekable for Snapshot {
         let v = self.db.get_cf_opt(handle, key, &opt)?;
         Ok(v.map(|v| v.to_vec()))
     }
+
+    // fn multi_get_opt(&self, keys: Vec<&[u8]>) -> Result<Vec<Option<Vec<u8>>>> {
+    //     let mut opt = ReadOptions::new();
+    //     unsafe {
+    //         opt.set_snapshot(&self.snap);
+    //     }
+    //     let v = self.db.multi_get_opt(keys, &opt)?;
+    //     Ok(v)
+    // }
+
+    // fn multi_get_cf_opt(&self, cf: &str, keys: Vec<&[u8]>) -> Result<Vec<Option<Vec<u8>>>> {
+    //     let handle = super::util::get_cf_handle(&self.db, cf)?;
+    //     let mut opt = ReadOptions::new();
+    //     unsafe {
+    //         opt.set_snapshot(&self.snap);
+    //     }
+    //     for k in keys.iter() {
+    //         println!("multi key - {:?}", k);
+    //     }
+    //     let v = self.db.multi_get_cf_opt(handle, keys, &opt)?;
+    //     for i in v.iter() {
+    //         println!("multi value - {:?}", i);
+    //     }
+    //     Ok(v)
+    // }
 }
 
 #[derive(Clone, Debug)]

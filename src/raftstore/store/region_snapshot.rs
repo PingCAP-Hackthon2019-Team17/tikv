@@ -191,6 +191,17 @@ impl Peekable for RegionSnapshot {
             }
         })
     }
+
+    fn multi_get_value(&self, keys: Vec<&[u8]>) -> EngineResult<Vec<Option<DBVector>>> {
+        let data_keys: Vec<Vec<u8>> = keys.into_iter().map(|k| keys::data_key(k)).collect();
+        let data_keys_ref = data_keys.iter().map(AsRef::as_ref).collect();
+        self.snap.multi_get_value(data_keys_ref)
+    }
+    fn multi_get_value_cf(&self, cf: &str, keys: Vec<&[u8]>) -> EngineResult<Vec<Option<DBVector>>> {
+        let data_keys :Vec<Vec<u8>>= keys.into_iter().map(|k| keys::data_key(k)).collect();
+        let data_keys_ref = data_keys.iter().map(AsRef::as_ref).collect();
+        self.snap.multi_get_value_cf(cf, data_keys_ref)
+    }
 }
 
 /// `RegionIterator` wrap a rocksdb iterator and only allow it to

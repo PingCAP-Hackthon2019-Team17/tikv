@@ -14,6 +14,17 @@ pub trait Peekable {
         self.get_cf_opt(&ReadOptions::default(), cf, key)
     }
 
+    // fn multi_get_opt(&self, opts: &ReadOptions, keys: &Vec<&[u8]>) -> Result<Vec<Option<Vec<u8>>>>;
+    // fn multi_get_cf_opt(&self, opts: &ReadOptions, cf: &str, keys: &Vec<&[u8]>) -> Result<Vec<Option<Vec<u8>>>>;
+
+    // fn multi_get(&self, keys: Vec<&[u8]>) -> Result<Vec<Option<Vec<u8>>>> {
+    //     self.multi_get_opt(&ReadOptions::default(), key)
+    // }
+
+    // fn multi_get_cf(&self, cf: &str, keys: Vec<&[u8]>) -> Result<Vec<Option<Vec<u8>>>> {
+    //     self.multi_get_cf_opt(&ReadOptions::default(), cf, key)
+    // }
+
     fn get_msg<M: protobuf::Message + Default>(&self, key: &[u8]) -> Result<Option<M>> {
         let value = self.get(key)?;
         if value.is_none() {

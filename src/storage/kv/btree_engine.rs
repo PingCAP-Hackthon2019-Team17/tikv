@@ -241,6 +241,13 @@ impl Snapshot for BTreeEngineSnapshot {
             mode,
         ))
     }
+    fn multi_get(&self, keys: &Vec<Key>) -> EngineResult<Vec<Option<Value>>> {
+        unimplemented!()
+    }
+
+    fn multi_get_cf(&self, cf: CfName, keys: &Vec<Key>) -> EngineResult<Vec<Option<Value>>> {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug, Clone)]

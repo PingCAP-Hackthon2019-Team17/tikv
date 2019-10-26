@@ -135,4 +135,23 @@ impl Peekable for Snapshot {
         let v = self.db.get_cf_opt(handle, key, &opt)?;
         Ok(v)
     }
+
+    fn multi_get_value(&self, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>> {
+        let mut opt = ReadOptions::new();
+        unsafe {
+            opt.set_snapshot(&self.snap);
+        }
+        let v = self.db.multi_get_opt(keys, &opt)?;
+        Ok(v)
+    }
+
+    fn multi_get_value_cf(&self, cf: &str, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>> {
+        let handle = super::util::get_cf_handle(&self.db, cf)?;
+        let mut opt = ReadOptions::new();
+        unsafe {
+            opt.set_snapshot(&self.snap);
+        }
+        let v = self.db.multi_get_cf_opt(handle, keys, &opt)?;
+        Ok(v)
+    }
 }

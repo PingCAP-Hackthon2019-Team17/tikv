@@ -3,7 +3,7 @@
 use kvproto::kvrpcpb::IsolationLevel;
 
 use crate::storage::mvcc::write::{Write, WriteType};
-use crate::storage::mvcc::{default_not_found_error, Lock, Result};
+use crate::storage::mvcc::{default_not_found_error, Lock,Result};
 use crate::storage::{Cursor, CursorBuilder, Key, Snapshot, Statistics, Value, CF_LOCK};
 use crate::storage::{CF_DEFAULT, CF_WRITE};
 
@@ -15,6 +15,7 @@ pub struct PointGetterBuilder<S: Snapshot> {
     omit_value: bool,
     isolation_level: IsolationLevel,
     ts: u64,
+    hint: usize,
 }
 
 impl<S: Snapshot> PointGetterBuilder<S> {
@@ -27,7 +28,13 @@ impl<S: Snapshot> PointGetterBuilder<S> {
             omit_value: false,
             isolation_level: IsolationLevel::Si,
             ts,
+            hint: 0,
         }
+    }
+
+    pub fn hint(mut self, hint: usize) -> Self {
+        self.hint = hint;
+        self
     }
 
     /// Set whether or not to get multiple keys.
@@ -90,6 +97,8 @@ impl<S: Snapshot> PointGetterBuilder<S> {
             write_cursor_valid: true,
 
             drained: false,
+            locks: Vec::with_capacity(self.hint),
+            writes: Vec::with_capacity(self.hint),
         })
     }
 }
@@ -114,6 +123,9 @@ pub struct PointGetter<S: Snapshot> {
     /// when `multi == false`, to protect from producing undefined values when trying to get
     /// multiple values under `multi == false`.
     drained: bool,
+
+    locks: Vec<Result<()>>,
+    writes: Vec<Option<Write>>,
 }
 
 impl<S: Snapshot> PointGetter<S> {
@@ -121,6 +133,134 @@ impl<S: Snapshot> PointGetter<S> {
     #[inline]
     pub fn take_statistics(&mut self) -> Statistics {
         std::mem::replace(&mut self.statistics, Statistics::default())
+    }
+
+    // make sure keys sorted in order
+    pub fn precheck_locks(&mut self, user_keys: &Vec<Key>) -> Result<()> {
+        self.statistics.lock.get += user_keys.len();
+        let lock_values = self.snapshot.multi_get_cf(CF_LOCK, user_keys)?;
+        for (i, lock) in lock_values.into_iter().enumerate() {
+            let res = if let Some(ref lock_value) = lock {
+                self.statistics.lock.processed += 1;
+                let lock = Lock::parse(lock_value)?;
+                super::util::check_lock(&user_keys[i], self.ts, &lock)
+            } else {
+                Ok(())
+            };
+            self.locks.push(res);
+        }
+        Ok(())
+    }
+
+    pub fn batch_seek_write(&mut self, user_keys: &Vec<Key>) -> Result<()> {
+        assert_eq!(self.locks.len(), user_keys.len());
+        for (i, user_key) in user_keys.iter().enumerate() {
+            if !self.write_cursor_valid {
+                self.writes.push(None);
+                continue;
+            }
+
+            if self.locks[i].is_err() {
+                self.writes.push(None);
+                continue;
+            }
+            // Seek to `${user_key}_${ts}`. TODO: We can avoid this clone.
+            if !self.write_cursor.near_seek(
+                &user_key.clone().append_ts(self.ts),
+                &mut self.statistics.write,
+            )? {
+                // If we seek to nothing, it means no write `key >= ${user_key}_${ts}`.
+                // - If later we want to get a key >= current key, due to the above conclusion we can
+                //   quit directly.
+                // - If later we want to get a key < current key, we should prohibit this call.
+                //   Returning nothing directly is safer than some undefined behaviour.
+                // So in all scenarios we should not provide results in future calls when we enter this
+                // branch.
+                self.write_cursor_valid = false;
+                self.writes.push(None);
+                continue;
+            }
+
+            loop {
+                if !self.write_cursor.valid()? {
+                    // Key space ended.
+                    self.writes.push(None);
+                    break;
+                }
+                // We may seek to another key. In this case, it means we cannot find the specified key.
+                {
+                    let cursor_key = self.write_cursor.key(&mut self.statistics.write);
+                    if !Key::is_user_key_eq(cursor_key, user_key.as_encoded().as_slice()) {
+                        self.writes.push(None);
+                        break;
+                    }
+                }
+
+                self.statistics.write.processed += 1;
+                let write = Write::parse(self.write_cursor.value(&mut self.statistics.write))?;
+
+                match write.write_type {
+                    WriteType::Put => {
+                        self.writes.push(Some(write));
+                        break;
+                    }
+                    WriteType::Delete => {
+                        self.writes.push(None);
+                        break;
+                    }
+                    WriteType::Lock | WriteType::Rollback => {
+                        // Continue iterate next `write`.
+                    }
+                }
+
+                self.write_cursor.next(&mut self.statistics.write);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn batch_get(mut self, user_keys: &Vec<Key>) -> Result<Vec<Result<Option<Value>>>> {
+        assert_eq!(self.writes.len(), user_keys.len());
+        
+        let mut res = Vec::with_capacity(user_keys.len());
+
+        let mut keys = Vec::with_capacity(user_keys.len());
+        let mut idxs = Vec::with_capacity(user_keys.len());
+        for ((i, write_info), lock) in self.writes.into_iter().enumerate().zip(self.locks.into_iter()) {
+            if lock.is_err() {
+                res.push(Err(lock.unwrap_err()));
+                continue;
+            }
+
+            if let Some(write) = write_info {
+                if let Some(value) = write.short_value {
+                    res.push(Ok(Some(value)));
+                    continue;
+                }
+                idxs.push(i);
+                keys.push(user_keys[i].clone().append_ts(write.start_ts));
+                res.push(Ok(None));
+            } else {
+                res.push(Ok(None));
+            }
+        }
+
+        self.statistics.data.get += 1;
+        let values = self.snapshot
+            .multi_get_cf(CF_DEFAULT, &keys)?;
+
+        for (i, value) in values.into_iter().enumerate() {
+            res[idxs[i]] = if let Some(v) = value {
+                Ok(Some(v))
+            } else {
+                Err(default_not_found_error(
+                    user_keys[idxs[i]].to_raw()?,
+                    Write::new(WriteType::Delete, 0, None),
+                    "load_data_from_default_cf",
+                ))
+            }
+        }
+        Ok(res)
     }
 
     /// Get the value of a user key.

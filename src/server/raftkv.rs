@@ -371,6 +371,18 @@ impl Snapshot for RegionSnapshot {
         Ok(v.map(|v| v.to_vec()))
     }
 
+    fn multi_get(&self, keys: &Vec<Key>) -> kv::Result<Vec<Option<Value>>> {
+        let data_keys : Vec<&[u8]>= keys.iter().map(|k| k.as_encoded().as_ref()).collect();
+        let v = box_try!(self.multi_get_value(data_keys));
+        Ok(v.iter().map(|v| v.as_ref().map(|val| val.to_vec())).collect())
+    }
+
+    fn multi_get_cf(&self, cf: CfName, keys: &Vec<Key>) -> kv::Result<Vec<Option<Value>>> {
+        let data_keys = keys.iter().map(|k| k.as_encoded().as_ref()).collect();
+        let v = box_try!(self.multi_get_value_cf(cf, data_keys));
+        Ok(v.iter().map(|v| v.as_ref().map(|val| val.to_vec())).collect())
+    }
+
     fn get_cf(&self, cf: CfName, key: &Key) -> kv::Result<Option<Value>> {
         fail_point!("raftkv_snapshot_get_cf", |_| Err(box_err!(
             "injected error for get_cf"

@@ -7,6 +7,8 @@ use crate::Result;
 pub trait Peekable {
     fn get_value(&self, key: &[u8]) -> Result<Option<DBVector>>;
     fn get_value_cf(&self, cf: &str, key: &[u8]) -> Result<Option<DBVector>>;
+    fn multi_get_value(&self, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>>;
+    fn multi_get_value_cf(&self, cf: &str, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>>;
 
     fn get_msg<M: protobuf::Message + Default>(&self, key: &[u8]) -> Result<Option<M>> {
         let value = self.get_value(key)?;

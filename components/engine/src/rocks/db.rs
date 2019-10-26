@@ -16,6 +16,16 @@ impl Peekable for DB {
         let v = self.get_cf(handle, key)?;
         Ok(v)
     }
+    
+    fn multi_get_value(&self, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>> {
+        let v = self.multi_get(keys)?;
+        Ok(v)
+    }
+    fn multi_get_value_cf(&self, cf: &str, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>> {
+        let handle = util::get_cf_handle(self, cf)?;
+        let v = self.multi_get_cf(handle, keys)?;
+        Ok(v)
+    }
 }
 
 impl Iterable for DB {

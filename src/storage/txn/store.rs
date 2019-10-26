@@ -202,20 +202,26 @@ impl<S: Snapshot> Store for SnapshotStore<S> {
             .fill_cache(self.fill_cache)
             .isolation_level(self.isolation_level)
             .multi(true)
+            .hint(keys.len())
             .build()?;
 
         let mut values: Vec<MaybeUninit<Element>> = Vec::with_capacity(keys.len());
         for _ in 0..keys.len() {
             values.push(MaybeUninit::uninit());
         }
-        for (original_order, key) in order_and_keys {
-            let value = point_getter.get(key).map_err(Error::from);
+
+        let ordered_keys = order_and_keys.iter().map(|(_, k)| (*k).clone()).collect();
+        point_getter.precheck_locks(&ordered_keys)?;
+        point_getter.batch_seek_write(&ordered_keys)?;
+        let v = point_getter.batch_get(&ordered_keys)?;
+
+        for (i, value) in v.into_iter().enumerate() {
             unsafe {
-                values[original_order].as_mut_ptr().write(value);
+                values[order_and_keys[i].0].as_mut_ptr().write(value.map_err(Error::from));
             }
         }
 
-        statistics.add(&point_getter.take_statistics());
+        // statistics.add(&point_getter.take_statistics());
 
         let values = unsafe { mem::transmute::<Vec<MaybeUninit<Element>>, Vec<Element>>(values) };
         Ok(values)
@@ -592,6 +598,13 @@ mod tests {
         }
         fn get_cf(&self, _: CfName, _: &Key) -> EngineResult<Option<Value>> {
             Ok(None)
+        }
+        fn multi_get(&self, keys: &Vec<Key>) -> EngineResult<Vec<Option<Value>>> {
+            unimplemented!()
+        }
+
+        fn multi_get_cf(&self, cf: CfName, keys: &Vec<Key>) -> EngineResult<Vec<Option<Value>>> {
+            unimplemented!()
         }
         fn iter(&self, _: IterOption, _: ScanMode) -> EngineResult<Cursor<Self::Iter>> {
             Ok(Cursor::new(

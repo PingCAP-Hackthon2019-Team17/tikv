@@ -161,6 +161,17 @@ impl Peekable for Rocks {
         let v = self.0.get_cf_opt(handle, key, &opt.into_raw())?;
         Ok(v.map(|v| v.to_vec()))
     }
+    // fn multi_get_value(&self, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>> {
+    //     let v = self.multi_get(keys)?;
+
+    //     Ok(v)
+    // }
+    // fn multi_get_value_cf(&self, cf: &str, keys: Vec<&[u8]>) -> Result<Vec<Option<DBVector>>> {
+    //     let handle = util::get_cf_handle(self, cf)?;
+
+    //     let v = self.multi_get_cf(handle, keys)?;
+    //     Ok(v)
+    // }
 }
 
 impl Mutable for Rocks {

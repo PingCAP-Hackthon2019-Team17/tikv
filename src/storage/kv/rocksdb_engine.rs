@@ -299,10 +299,20 @@ impl Snapshot for RocksSnapshot {
         Ok(v.map(|v| v.to_vec()))
     }
 
+    fn multi_get(&self, keys: &Vec<Key>) -> Result<Vec<Option<Value>>> {
+        let v = box_try!(self.multi_get_value(keys.iter().map(|k| k.as_encoded().as_ref()).collect()));
+        Ok(v.into_iter().map(|v| v.map(|val| val.to_vec())).collect())
+    }
+
     fn get_cf(&self, cf: CfName, key: &Key) -> Result<Option<Value>> {
         trace!("RocksSnapshot: get_cf"; "cf" => cf, "key" => %key);
         let v = box_try!(self.get_value_cf(cf, key.as_encoded()));
         Ok(v.map(|v| v.to_vec()))
+    }
+
+    fn multi_get_cf(&self, cf: CfName, keys: &Vec<Key>) -> Result<Vec<Option<Value>>> {
+        let v = box_try!(self.multi_get_value_cf(cf, keys.iter().map(|k| k.as_encoded().as_ref()).collect()));
+        Ok(v.into_iter().map(|v| v.map(|val| val.to_vec())).collect())
     }
 
     fn iter(&self, iter_opt: IterOption, mode: ScanMode) -> Result<Cursor<Self::Iter>> {
